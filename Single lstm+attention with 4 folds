@@ -1,11 +1,13 @@
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import os
-print(os.listdir("../input"))
+# An insincere question is defined as a question intended to make a statement rather than look for helpful answers. 
+# The training data includes the question that was asked, and whether it was identified as insincere (target = 1). 
+# The ground-truth labels contain some amount of noise: they are not guaranteed to be perfect
 
+import numpy as np 
+import pandas as pd 
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from sklearn import metrics
 from keras.initializers import *
 from nltk.tokenize import TweetTokenizer
 import datetime
@@ -47,13 +49,12 @@ test = pd.read_csv("../input/test.csv")
 sub = pd.read_csv('../input/sample_submission.csv')
 
 pd.set_option('display.max_columns', None)
-#显示所有行
 pd.set_option('display.max_rows', None)
-#设置value的显示长度为100，默认为50
 pd.set_option('max_colwidth',200)
 print(train.columns)
 print(train['target'].value_counts())
 
+# clean text
 puncts = [ '"', ')', '(', '-', '|', "'", '$', '&', '/', '[', ']', '>', '%', '=', '#', '*', '+', '\\', '•',  '~', '@', '£', 
  '·', '_', '{', '}', '©', '^', '®', '`',  '<', '→', '°', '€', '™', '›',  '♥', '←', '×', '§', '″', '′', 'Â', '█', '½', 'à', '…', 
  '“', '★', '”', '–', '●', 'â', '►', '−', '¢', '²', '¬', '░', '¶', '↑', '±', '¿', '▾', '═', '¦', '║', '―', '¥', '▓', '—', '‹', '─', 
@@ -87,6 +88,7 @@ def split_text(x):
 train["question_text"] = train["question_text"].apply(lambda x: clean_text(x))
 test["question_text"] = test["question_text"].apply(lambda x: clean_text(x))
 
+# tokenize
 m = train.shape[0]
 max_features = 120000
 print(m,'m')
@@ -100,7 +102,7 @@ full_text = list(train['question_text'].values)
 tk.fit_on_texts(full_text)
 
 train_df_tokenized = tk.texts_to_sequences(train_df['question_text'])
-#val_df_tokenized = tk.texts_to_sequences(val_df['question_text'])
+# val_df_tokenized = tk.texts_to_sequences(val_df['question_text'])
 test_tokenized = tk.texts_to_sequences(test['question_text'])
 
 print(len(tk.word_index))
@@ -428,8 +430,7 @@ def f1(y_true, y_pred):
     
 def lstm_model():
     inp = Input(shape = (max_len,))
-    x = Embedding(emb_len, emb_dim, weights = [embedding_matrix], trainable = False)(inp)
-    
+    x = Embedding(emb_len, emb_dim, weights = [embedding_matrix], trainable = False)(inp) 
     x = SpatialDropout1D(0.1)(x)
     x = Bidirectional(CuDNNLSTM(128, return_sequences=True))(x)    
     x = Bidirectional(CuDNNGRU(64,return_sequences=True))(x)
@@ -439,8 +440,7 @@ def lstm_model():
     conc = concatenate([atten_1, avg_pool, max_pool])   
     x = Dense(128, activation="relu")(conc)
     x = Dense(32, activation="relu")(x)
-    print(x.shape)
-    
+    print(x.shape)   
     x = Dense(1, activation="sigmoid")(x)
            
     model = Model(inputs = [inp,], outputs = x)
@@ -448,8 +448,6 @@ def lstm_model():
     model.summary()
     
     return model
-    
-from sklearn import metrics
 
 # find the best thresh
 def thresh_find(train_y,pred_val):
@@ -506,7 +504,7 @@ sub.to_csv("submission.csv", index=False)
 
 print(c)
 
-# check wrong pred
+# check wrong prediction
 pred_val = train_meta
 val_pred = (pred_val>c).astype(int)
 print(metrics.f1_score(train_y,val_pred))
@@ -515,5 +513,6 @@ val_pred = val_pred.flatten()
 print((train_y != val_pred).shape)
 wrong_pred = val_df[train_y != val_pred]
 
-print(wrong_pred.head(10))
+wrong_number = 10
+print(wrong_pred.head(wrong_number))
     
